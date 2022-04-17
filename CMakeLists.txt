@@ -1,12 +1,8 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.10)
 project(BundleACeres)
 
-set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 
-set(
-        CMAKE_CXX_STANDARD
-        14
-)
+set(CMAKE_CXX_STANDARD 14)
 
 add_definitions(-DPROJECT_DIR="${PROJECT_SOURCE_DIR}")
 
@@ -15,7 +11,7 @@ find_package(
         REQUIRED
 )
 find_package(
-        OpenCV 3
+        OpenCV
         REQUIRED
 )
 find_package(
@@ -23,7 +19,7 @@ find_package(
         REQUIRED
 )
 find_package(
-        PCL 1.8
+        PCL
         REQUIRED
 )
 find_package(
