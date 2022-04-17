@@ -7,41 +7,61 @@
 const auto CHAIN_LENGTH = 8;
 const auto MIN_OCCURENCES = 4;
 
-int main()
+SyntheticSensor* sensor;
+
+FeatureComputation feature_computation;
+PointCloud waiting_cloud, bundle_cloud, final_cloud;
+
+std::vector<CameraPose> camera_poses_history, camera_poses_GT;
+std::deque<CameraPose> camera_poses_active;
+
+std::vector<FrameData> frames;
+
+void InitSyntheticSensor(const std::string& sensor_data)
 {
-	// Creating objects, processing first frame
-	std::cout << "PHASE I: Initialization" << std::endl;
-	SyntheticSensor sensor{ "data/synthetic_dataset/" };
-	FeatureComputation feature_computation;
-	PointCloud waiting_cloud, bundle_cloud, final_cloud;
-	Visualizer visualizer;
-	std::vector<CameraPose> camera_poses_history, camera_poses_GT;
-	std::deque<CameraPose> camera_poses_active;
+	sensor = new SyntheticSensor(sensor_data + "/data/rgbd_dataset_freiburg2_coke/");
+}
 
-	std::vector<FrameData> frames;
+void FirstBundle(Visualizer& visualizer)
+{
+	// Acquire previous frame to initialize the chain.
+	auto current_frame = sensor->grab_frame();
 
-	frames.push_back(sensor.grab_frame());
-	feature_computation.process(frames[0]);
-	camera_poses_GT.push_back(frames[0].pose_GT);
-	camera_poses_active.push_back(frames[0].pose_GT);
+	// Calculate keypoints and descriptors.
+	feature_computation.process(current_frame);
+
+	// Add the frame and its features.
+	frames.push_back(current_frame);
+
+	// Add camera poses.
+	camera_poses_GT.push_back(current_frame.pose_GT);
+	camera_poses_active.push_back(current_frame.pose_GT);
 
 	// Use CHAIN_LENGTH amount of frames with their ground truth in order to initialize the optimization
-	std::cout << "PHASE II: First Bundle" << std::endl;
-	for (int init_frame = 1; init_frame < CHAIN_LENGTH; ++init_frame) {
+	for (int init_frame = 1; init_frame < CHAIN_LENGTH; ++init_frame)
+	{
 		// Grab new frame from sensor
-		auto current_frame = sensor.grab_frame();
+		current_frame = sensor->grab_frame();
+
 		// Calculate keypoints and descriptors
 		feature_computation.process(current_frame);
+
+		// Add the frame and its features.
 		frames.push_back(current_frame);
+
 		// Get correspondences by feature matching between the current and the previous frame
 		auto correspondences = feature_computation.match(current_frame, frames[current_frame.frame_index - 1]);
+
 		// Try to integrate correspondences into existing clouds
 		waiting_cloud.integrate_correspondences(correspondences);
+
 		// Add the remaining ones with ground truth coordinates
 		auto points = generate_points3D_from_groundtruth(correspondences, current_frame.depth,
-			sensor.get_intrinsics(), current_frame.pose_GT.pose);
+			sensor->get_intrinsics(), current_frame.pose_GT.pose);
+
 		waiting_cloud.add_points(points);
 
+		// Add camera poses
 		camera_poses_GT.push_back(current_frame.pose_GT);
 		camera_poses_active.push_back(current_frame.pose_GT);
 
@@ -51,17 +71,25 @@ int main()
 
 		visualizer.visualize(false);
 	}
+}
 
-	std::cout << "PHASE III: Bundle adjustment" << std::endl;
+void BundleAdjustment(Visualizer& visualizer)
+{
 	int interval = 0;
-	while (!sensor.has_ended()) {
+	while (!sensor->has_ended())
+	{
 		// Grab new frame from sensor
-		auto current_frame = sensor.grab_frame();
+		auto current_frame = sensor->grab_frame();
+
 		// Calculate keypoints and descriptors
 		feature_computation.process(current_frame);
+
+		// Add the frame and its features.
 		frames.push_back(current_frame);
+
 		// Get correspondences by feature matching between the current and the previous frame
 		auto correspondences = feature_computation.match(current_frame, frames[current_frame.frame_index - 1]);
+
 		// Try to integrate correspondences into existing clouds and promote points with at least MIN_OCCURENCES observations
 		waiting_cloud.integrate_correspondences(correspondences);
 		auto promoted = waiting_cloud.pop_observed_n_times(MIN_OCCURENCES);
@@ -70,7 +98,7 @@ int main()
 
 		// Add the remaining ones with ground truth coordinates
 		auto points = generate_points3D_from_groundtruth(correspondences, current_frame.depth,
-			sensor.get_intrinsics(), current_frame.pose_GT.pose);
+			sensor->get_intrinsics(), current_frame.pose_GT.pose);
 		waiting_cloud.add_points(points);
 
 		camera_poses_GT.push_back(current_frame.pose_GT);
@@ -84,7 +112,7 @@ int main()
 		final_cloud.add_points(unobserved);
 
 		// Do optimization
-		optimize(bundle_cloud, camera_poses_active, sensor.get_intrinsics());
+		optimize(bundle_cloud, camera_poses_active, sensor->get_intrinsics());
 
 		// Prepare for relative pose error evaluation
 		std::vector<Sophus::SE3d> poses, posesGT;
@@ -102,6 +130,23 @@ int main()
 		else
 			visualizer.visualize(false);
 	}
+}
+
+int main()
+{
+	Visualizer visualizer;
+
+	std::cout << "PHASE I: Initialization of Sensor Data" << std::endl;
+
+	InitSyntheticSensor(PROJECT_DIR);
+
+	std::cout << "PHASE II: First Bundle" << std::endl;
+
+	FirstBundle(visualizer);
+
+	std::cout << "PHASE III: Bundle adjustment" << std::endl;
+
+	BundleAdjustment(visualizer);
 
 	std::cout << "Done. Goodbye." << std::endl;
 	return EXIT_SUCCESS;

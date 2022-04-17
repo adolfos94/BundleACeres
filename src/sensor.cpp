@@ -7,29 +7,37 @@
 
 const auto SKIP_N_FRAMES = 10;
 
-std::vector<Sophus::SE3d> load_all_poses(const std::string& data_dir)
+std::ifstream SyntheticSensor::file_info_rgb;
+std::ifstream SyntheticSensor::file_info_depth;
+std::ifstream SyntheticSensor::file_info_poses;
+
+std::vector<Sophus::SE3d> SyntheticSensor::load_all_poses()
 {
 	std::vector<Sophus::SE3d> poses;
 
-	for (int pose_idx = 0;; ++pose_idx) {
-		// Construct filename and load file contents
-		std::stringstream ss;
-		ss << data_dir << std::setw(4) << std::setfill('0') << pose_idx + 1 << ".dat";
-		std::ifstream file{ ss.str() };
-		if (!file.good())
-			break;
+	for (std::string pose; std::getline(file_info_poses, pose); )
+	{
+		int i = 0;
+		// tx ty tz qx qy qz qw
+		std::vector<double> extrinsics(7);
+		std::string elem;
+		std::stringstream iss(pose);
+		while (iss >> elem)
+		{
+			if (i != 0)
+			{
+				extrinsics[i - 1] = stof(elem);
+			}++i;
+		}
+		Sophus::Vector3d translation = Sophus::Vector3d(
+			extrinsics[0], extrinsics[1], extrinsics[2]
+		);
 
-		// Construct a matrix from file contents
-		Eigen::Matrix4d extrinsics{ Eigen::Matrix4d::Identity() };
-		for (int i = 0; i < 4; i++)
-			for (int j = 0; j < 3; j++)
-				file >> extrinsics(j, i);
-		extrinsics.col(0).normalize();
-		extrinsics.col(1).normalize();
-		extrinsics.col(2).normalize();
+		Eigen::Quaterniond quaternion = Eigen::Quaterniond(
+			extrinsics[6], extrinsics[3], extrinsics[4], extrinsics[5]
+		);
 
-		// Put the new pose into the vector
-		poses.push_back(Sophus::SE3d{ Sophus::SE3d::fitToSE3(extrinsics) }.inverse());
+		poses.push_back(Sophus::SE3d(quaternion, translation).inverse());
 	}
 
 	return poses;
@@ -46,33 +54,42 @@ SyntheticSensor::SyntheticSensor(const std::string& _dataset_dir)
 		0.0, fy, cy,
 		0.0, 0.0, 1.0;
 
-	all_poses = load_all_poses(_dataset_dir);
+	file_info_rgb = std::ifstream(dataset_dir + "rgb.txt");
+	file_info_depth = std::ifstream(dataset_dir + "depth.txt");
+	file_info_poses = std::ifstream(dataset_dir + "groundtruth.txt");
+
+	if (!file_info_rgb.good() || !file_info_depth.good() || !file_info_poses.good())
+	{
+		std::cerr << "Error loading data.." << std::endl;
+		return;
+	}
+
+	all_poses = load_all_poses();
 }
 
 FrameData SyntheticSensor::grab_frame() const {
-	std::stringstream ss;
-	ss << dataset_dir << std::setw(4) << std::setfill('0') << current_frame_index * SKIP_N_FRAMES + 1 << ".exr";
+	std::string rgb_path, depth_path;
+	std::getline(file_info_rgb, rgb_path);
+	std::getline(file_info_depth, depth_path);
 
-	std::cout << "Grabbing: " << ss.str() << std::endl;
+	std::string filename_rgb, filename_depth;
+	std::stringstream issr(rgb_path), issd(depth_path);
+	while (issr >> filename_rgb);
+	while (issd >> filename_depth);
 
-	auto color = cv::imread(ss.str(), cv::IMREAD_UNCHANGED);
-	if (color.empty())
-		throw std::runtime_error{ "Frame could not be grabbed" };
-	color.convertTo(color, CV_8UC3, 255.0);
+	auto color = cv::imread(dataset_dir + filename_rgb, cv::IMREAD_COLOR);
+	auto depth = cv::imread(dataset_dir + filename_depth, cv::IMREAD_UNCHANGED);
 
-	Imf::InputFile exr_file{ ss.str().c_str() };
-	const auto data_window = exr_file.header().dataWindow();
-	Imf::Array2D<float> z_pixels{ image_height, image_width };
+	if (color.empty() || depth.empty())
+		throw std::runtime_error{ "Frames could not be grabbed" };
 
-	Imf::FrameBuffer frameBuffer;
-	frameBuffer.insert("Z", Imf::Slice(Imf::FLOAT, (char*)&z_pixels[0][0], sizeof(float) * 1, sizeof(float) * 1 * image_width));
-	exr_file.setFrameBuffer(frameBuffer);
-	exr_file.readPixels(data_window.min.y, data_window.max.y);
+	//color.convertTo(color, CV_8UC3, 255.0);
+	depth.convertTo(depth, CV_64FC1);
 
-	cv::Mat depth;
-	cv::Mat{ image_height, image_width, CV_32FC1, &z_pixels[0][0] }.convertTo(depth, CV_64FC1);
+	FrameData frameData{ current_frame_index, color, depth, all_poses[current_frame_index] };
+	current_frame_index++;
 
-	return FrameData{ current_frame_index, color, depth, all_poses[current_frame_index++ * SKIP_N_FRAMES] };
+	return frameData;
 }
 
 bool SyntheticSensor::has_ended() const {
