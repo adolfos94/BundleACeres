@@ -5,8 +5,6 @@
 
 #include <sophus/se3.hpp>
 
-const auto SKIP_N_FRAMES = 10;
-
 std::ifstream SyntheticSensor::file_info_rgb;
 std::ifstream SyntheticSensor::file_info_depth;
 std::ifstream SyntheticSensor::file_info_poses;
@@ -69,8 +67,10 @@ SyntheticSensor::SyntheticSensor(const std::string& _dataset_dir)
 
 FrameData SyntheticSensor::grab_frame() const {
 	std::string rgb_path, depth_path;
+
 	std::getline(file_info_rgb, rgb_path);
 	std::getline(file_info_depth, depth_path);
+
 
 	std::string filename_rgb, filename_depth;
 	std::stringstream issr(rgb_path), issd(depth_path);

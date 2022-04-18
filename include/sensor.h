@@ -2,6 +2,9 @@
 
 #include <types.h>
 
+
+constexpr auto SKIP_N_FRAMES = 10;
+
 class SyntheticSensor {
 public:
 

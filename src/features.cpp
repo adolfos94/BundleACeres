@@ -26,10 +26,10 @@ auto FeatureComputation::match(FrameData& from, FrameData& to) const -> std::vec
 	cv::Mat mask;
 	cv::findHomography(from_points, to_points, mask, cv::RANSAC, 3);
 
-	/*cv::Mat out;
+	cv::Mat out;
 	cv::drawMatches(from.color, from.keypoints, to.color, to.keypoints, matches, out, cv::Scalar::all(-1), cv::Scalar::all(-1), mask);
 	cv::imshow("out", out);
-	cv::waitKey(0);*/
+	cv::waitKey(1);
 
 	// Finally, extract the inliers that RANSAC identified
 	std::vector<PointCorrespondence> corresponding_points;
