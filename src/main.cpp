@@ -43,6 +43,9 @@ void FirstBundle(Visualizer& visualizer)
 		// Grab new frame from sensor
 		current_frame = sensor->grab_frame();
 
+		if (current_frame.frame_index == -1)
+			return;
+
 		// Calculate keypoints and descriptors
 		feature_computation.process(current_frame);
 
@@ -56,8 +59,12 @@ void FirstBundle(Visualizer& visualizer)
 		waiting_cloud.integrate_correspondences(correspondences);
 
 		// Add the remaining ones with ground truth coordinates
-		auto points = generate_points3D_from_groundtruth(correspondences, current_frame.depth,
-			sensor->get_intrinsics(), current_frame.pose_GT.pose);
+		auto points = generate_points3D_from_groundtruth(
+			correspondences, 
+			current_frame.color,
+			current_frame.depth,
+			sensor->get_intrinsics(), 
+			current_frame.pose_GT.pose);
 
 		waiting_cloud.add_points(points);
 
@@ -81,6 +88,9 @@ void BundleAdjustment(Visualizer& visualizer)
 		// Grab new frame from sensor
 		auto current_frame = sensor->grab_frame();
 
+		if (current_frame.frame_index == -1)
+			return;
+
 		// Calculate keypoints and descriptors
 		feature_computation.process(current_frame);
 
@@ -97,8 +107,13 @@ void BundleAdjustment(Visualizer& visualizer)
 		bundle_cloud.integrate_correspondences(correspondences);
 
 		// Add the remaining ones with ground truth coordinates
-		auto points = generate_points3D_from_groundtruth(correspondences, current_frame.depth,
-			sensor->get_intrinsics(), current_frame.pose_GT.pose);
+		auto points = generate_points3D_from_groundtruth(
+			correspondences,
+			current_frame.color,
+			current_frame.depth,
+			sensor->get_intrinsics(), 
+			current_frame.pose_GT.pose);
+
 		waiting_cloud.add_points(points);
 
 		camera_poses_GT.push_back(current_frame.pose_GT);

@@ -71,14 +71,16 @@ void Visualizer::set_pointclouds(const PointCloud& bundle_cloud, const PointClou
         ba_visualization_cloud->push_back(pcl_point);
         gt_visualization_cloud->push_back(pcl_point_gt);
     }
-    for (const auto& finalPoint : final_cloud.points) {
+    for (const auto& finalPoint : final_cloud.points) 
+    {
+        auto pixel = finalPoint.pixel;
         auto coords = finalPoint.coordinates.cast<float>();
         auto coordsGT = finalPoint.coordinates_GT.cast<float>();
         pcl::PointXYZRGB pcl_point;
-        pcl_point.r = 255; pcl_point.g = 0; pcl_point.b = 0;
+        pcl_point.r = pixel[0]; pcl_point.g = pixel[1]; pcl_point.b = pixel[2];
         pcl_point.x = coords[0]; pcl_point.y = coords[1]; pcl_point.z = coords[2];
         pcl::PointXYZRGB pcl_point_gt;
-        pcl_point_gt.r = 255; pcl_point_gt.g = 0; pcl_point_gt.b = 0;
+        pcl_point_gt.r = pixel[0]; pcl_point_gt.g = pixel[1]; pcl_point_gt.b = pixel[2];
         pcl_point_gt.x = coordsGT[0]; pcl_point_gt.y = coordsGT[1]; pcl_point_gt.z = coordsGT[2];
         ba_visualization_cloud->push_back(pcl_point);
         gt_visualization_cloud->push_back(pcl_point_gt);

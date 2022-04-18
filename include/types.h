@@ -19,6 +19,11 @@ struct FrameData {
 		color{ _color }, depth{ _depth },
 		pose_GT{ _frame_index, _pose } {}
 
+	FrameData()
+	{
+		frame_index = -1;
+	}
+
 	size_t frame_index;
 
 	cv::Mat color;

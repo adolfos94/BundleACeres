@@ -8,14 +8,18 @@ struct Observation {
 };
 
 struct Point3D {
+    Eigen::Vector3<uchar> pixel;
     Eigen::Vector3d coordinates;
     Eigen::Vector3d coordinates_GT;
     std::vector<Observation> observations;
 };
 
-auto generate_points3D_from_groundtruth(
-        const std::vector<PointCorrespondence>& correspondences, const cv::Mat& depth_map,
-        const Eigen::Matrix3d& intrinsics_inverse, const Sophus::SE3d& camera_pose) -> std::vector<Point3D>;
+std::vector<Point3D> generate_points3D_from_groundtruth(
+    const std::vector<PointCorrespondence>& correspondences,
+    const cv::Mat& color_map,
+    const cv::Mat& depth_map,
+    const Eigen::Matrix3d& intrinsics,
+    const Sophus::SE3d& camera_pose);
 
 class PointCloud {
 public:

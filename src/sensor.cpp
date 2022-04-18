@@ -37,7 +37,7 @@ std::vector<Sophus::SE3d> SyntheticSensor::load_all_poses()
 			extrinsics[6], extrinsics[3], extrinsics[4], extrinsics[5]
 		);
 
-		poses.push_back(Sophus::SE3d(quaternion, translation).inverse());
+		poses.push_back(Sophus::SE3d(quaternion, translation));
 	}
 
 	return poses;
@@ -78,10 +78,13 @@ FrameData SyntheticSensor::grab_frame() const {
 	while (issd >> filename_depth);
 
 	auto color = cv::imread(dataset_dir + filename_rgb, cv::IMREAD_COLOR);
-	auto depth = cv::imread(dataset_dir + filename_depth, cv::IMREAD_UNCHANGED);
+	auto depth = cv::imread(dataset_dir + filename_depth, cv::IMREAD_GRAYSCALE);
 
 	if (color.empty() || depth.empty())
-		throw std::runtime_error{ "Frames could not be grabbed" };
+	{
+		std::cout << "Frames could not be grabbed" << std::endl;
+		return FrameData();
+	}
 
 	//color.convertTo(color, CV_8UC3, 255.0);
 	depth.convertTo(depth, CV_64FC1);
